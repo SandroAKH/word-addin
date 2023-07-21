@@ -1,2 +1,2 @@
 # word-addin 
-### start project _ nmp start to "office-addin-debugging start manifest.xml"
+### start project _ npm start to "office-addin-debugging start manifest.xml"
