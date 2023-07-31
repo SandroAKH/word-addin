@@ -1,127 +1,89 @@
-import * as React from "react"
-import { Button, Label } from "@fluentui/react-components"
-
-/* global Word */
-
+import React from "react";
+import { Button } from "@fluentui/react-components";
 export class ButtonExample extends React.Component {
-    constructor(props, context) {
-        super(props, context);
+    constructor(props) {
+        super(props);
         this.state = {
-            text: context,
+            text: "",
             content: [],
-            clickedWord: "", // To store the word clicked in the UI
-
         };
-    }
-    highlightText = async () => {
-        const { clickedWord } = this.state;
-
-        if (!clickedWord) {
-            console.log("No word selected.");
-            return;
-        }
-
-        // Office.js API to find and highlight the clicked word in the Word document
-        await Word.run(async (context) => {
-            const searchResults = context.document.body.search(clickedWord, { ignoreCase: false });
-
-            // Load the search results
-            context.load(searchResults, "font");
-            // Synchronize the changes with the Word document
-            console.log(context.document.body)
-            await context.sync();
-            // Apply highlight 
-            searchResults.items.forEach((result) => {
-                //     const isCorrect = content.some((data) =>
-                //           data.lstWR.some((item) => item.Correct === 1 && item.Word.toLowerCase() === result.text.toLowerCase())
-                // );
-                // if (isCorrect) {
-                //     const searchResults = body.search(words[i], { ignoreCase: true });
-                //     searchResults.load("font");
-                //     await context.sync();
-
-                //     searchResults.items.forEach((result) => {
-                //         result.font.highlightColor = "yellow";
-                //     });
-                // }
-                result.font.highlightColor = "yellow";
-            });
-
-            console.log("Text highlighted:", clickedWord);
-        });
-    };
-    handleResponseClick = (clickedWord) => {
-        // Check if the clicked word is not an empty string
-        if (clickedWord.trim() !== "") {
-            // Update the state with the clicked word
-            this.setState({ clickedWord }, () => {
-                this.highlightText();
-            });
-        }
-    };
-
-    componentDidMount() {
-        this.getContentText();
-    }
-
-    componentDidUpdate(prevProps, prevState) {
-        if (this.state.text !== prevState.text) {
-            this.postData(this.state.text);
-        }
-    }
-
-    insertText = async () => {
-        // Write text to the document when the button is selected.
-        await Word.run(async context => {
-            let body = context.document.body
-            body.insertParagraph("Hello Fluent UI React!", Word.InsertLocation.end)
-            await context.sync()
-        })
     }
 
     postData = async (data) => {
         try {
             const response = await fetch("https://enagramm.com/API/SpellChecker/CheckTextTest", {
-                method: 'POST',
+                method: "POST",
                 headers: {
-                    'Content-Type': 'application/json',
+                    "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ "Text": data, "ToolsGlobalLangID": 1, "ToolsLangCode": "GEO" }),
+                body: JSON.stringify({ Text: data, ToolsGlobalLangID: 1, ToolsLangCode: "GEO" }),
             });
 
             if (!response.ok) {
-                throw new Error('Network response was not ok');
+                throw new Error("Network response was not ok");
             }
 
-            return response.json();
-        } catch (error) {
-            console.error('Error:', error);
-        }
-    }
+            const responseData = await response.json();
+            const correctWords = responseData.lstWR.filter((item) => item.Correct === 1).map((item) => item.Word);
+            const incorrectWords = responseData.lstWR.filter((item) => item.Correct === 0).map((item) => item.Word);
+            this.setState({ content: [responseData] }, async () => {
+                console.log("Response from server:", responseData);
 
-    // get context text
+                await Word.run(async (context) => {
+                    const body = context.document.body;
+                    const paragraphs = body.paragraphs;
+                    paragraphs.load("text, font");
+
+                    await context.sync();
+
+                    // Clear incorrect highlights
+                    for (const paragraph of paragraphs.items) {
+                        const text = paragraph.text;
+                        const words = text.split(/\s+/);
+                        for (const word of words) {
+                            if (incorrectWords.includes(word)) {
+                                paragraph.font.highlightColor = null;
+                            }
+                        }
+                    }
+
+                    // Highlight correct words
+                    for (const paragraph of paragraphs.items) {
+                        const text = paragraph.text;
+                        const words = text.split(/\s+/);
+                        for (const word of words) {
+                            if (correctWords.includes(word)) {
+                                const searchResults = paragraph.search(word, { matchCase: true });
+                                context.load(searchResults, "font");
+                                await context.sync();
+
+                                for (const searchResult of searchResults.items) {
+                                    searchResult.font.highlightColor = "yellow";
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+        } catch (error) {
+            console.error("Error fetching data from server:", error);
+        }
+    };
+
     getContentText = async () => {
         try {
-            await Word.run(async context => {
-                var body = context.document.body;
-                context.load(body);
+            await Word.run(async (context) => {
+                const body = context.document.body;
+                context.load(body, "text");
 
-                // Execute the queued commands and return a promise
                 await context.sync();
 
-                // Get the text of the body and display it
-                var contentText = body.text;
+                const contentText = body.text;
                 if (contentText.length > 0) {
-
                     this.setState({ text: contentText });
                     console.log("Content text of the document:", contentText);
 
-                    const data = await this.postData(contentText);
-                    console.log("Response from server:", data);
-
-                    this.setState({
-                        content: [data],
-                    });
+                    this.postData(contentText);
                 }
             });
         } catch (error) {
@@ -130,9 +92,16 @@ export class ButtonExample extends React.Component {
                 console.log("Debug info: " + JSON.stringify(error.debugInfo));
             }
         }
+    };
+
+    componentDidUpdate(prevProps, prevState) {
+        if (this.state.text !== prevState.text) {
+            this.postData(this.state.text.split(" "));
+        }
     }
+
     render() {
-        let { disabled } = this.props
+        let { disabled } = this.props;
         const { content } = this.state;
 
         return (
@@ -140,32 +109,21 @@ export class ButtonExample extends React.Component {
                 <br />
                 <ul>
                     {content?.map((data, index) => {
-                        return (
-                            data.lstWR.map((item, index2) => {
-                                if (item.Correct === 1) {
-
-                                    return (
-
-                                        <li className="correct-word" key={index2}><button onClick={() => this.handleResponseClick(item.Word)}
-                                        >{item.Word}</button></li>
-                                    )
-                                }
-                            })
-
-                        )
-                    }
-                    )}
+                        return data.lstWR.map((item, index2) => {
+                            if (item.Correct === 1) {
+                                return (
+                                    <li className="correct-word" key={index2}>
+                                        <button>{item.Word}</button>
+                                    </li>
+                                );
+                            }
+                        });
+                    })}
                 </ul>
-                <Button
-                    appearance="primary"
-                    disabled={disabled}
-                    size="large"
-                    className="submit-btn"
-                    onClick={this.getContentText}
-                >
+                <Button appearance="primary" disabled={disabled} size="large" className="submit-btn" onClick={this.getContentText}>
                     Check
                 </Button>
             </div>
-        )
+        );
     }
 }

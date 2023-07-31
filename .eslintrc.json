@@ -2,7 +2,7 @@
   "plugins": [
     "office-addins"
   ],
-  "extends": [
-    "plugin:office-addins/react"
-  ]
+  // "extends": [
+  //   "plugin:office-addins/react"
+  // ]
 }
