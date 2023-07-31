@@ -69,6 +69,12 @@ export class ButtonExample extends React.Component {
             console.error("Error fetching data from server:", error);
         }
     };
+    // if (correctWords.includes(word)) {
+    //     const range = paragraph.getRange(wordIndex, word.length);
+    //     range.track();
+    //     paragraph.font.highlightColor = null; // Remove any existing highlight
+    //     range.font.highlightColor = "yellow"; // Highlight the correct word
+    // }
     handleWordClick = async (word) => {
         console.log(word);
         try {
