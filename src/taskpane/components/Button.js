@@ -69,6 +69,28 @@ export class ButtonExample extends React.Component {
             console.error("Error fetching data from server:", error);
         }
     };
+    handleWordClick = async (word) => {
+        console.log(word);
+        try {
+            await Word.run(async (context) => {
+                const body = context.document.body;
+                const range = body.getRange();
+                const searchResults = range.search(word, { matchCase: true });
+
+                context.load(searchResults, "items");
+                await context.sync();
+                searchResults.items.forEach((searchResult) => {
+                    searchResult.insertContentControl();
+
+                });
+
+                await context.sync();
+            });
+        } catch (error) {
+            console.error("Error inserting content control:", error);
+        }
+    };
+
 
     getContentText = async () => {
         try {
@@ -113,7 +135,7 @@ export class ButtonExample extends React.Component {
                             if (item.Correct === 1) {
                                 return (
                                     <li className="correct-word" key={index2}>
-                                        <button>{item.Word}</button>
+                                        <button onClick={() => this.handleWordClick(item.Word)}>{item.Word}</button>
                                     </li>
                                 );
                             }
